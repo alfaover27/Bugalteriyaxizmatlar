@@ -34,7 +34,7 @@ interface ChiqimData {
 
 const filialOptions = ["Toshkent filiali", "Samarqand filiali", "Buxoro filiali", "Andijon filiali", "Namangan filiali"]
 
-export default function ChiqimModule() {
+function ChiqimModule() {
   const { chiqimData, setChiqimData } = useAccounting()
 
   const [data, setData] = useState<ChiqimData[]>([
@@ -46,10 +46,10 @@ export default function ChiqimModule() {
       chiqimNomi: "Ish haqi",
       avvalgiOylardan: 200000,
       birOylikHisoblangan: 8000000,
-      jamiHisoblangan: 8200000, // Auto calculated: 200000 + 8000000
+      jamiHisoblangan: 8200000,
       tolangan: 8500000,
-      qoldiqQarzDorlik: 0, // No debt since tolangan > jamiHisoblangan
-      qoldiqAvans: 300000, // 8500000 - 8200000 = 300000 (excess payment)
+      qoldiqQarzDorlik: 0,
+      qoldiqAvans: 300000,
     },
     {
       id: 2,
@@ -59,9 +59,9 @@ export default function ChiqimModule() {
       chiqimNomi: "Ijara to'lovi",
       avvalgiOylardan: 500000,
       birOylikHisoblangan: 7500000,
-      jamiHisoblangan: 8000000, // Auto calculated: 500000 + 7500000
+      jamiHisoblangan: 8000000,
       tolangan: 7000000,
-      qoldiqQarzDorlik: 1000000, // 8000000 - 7000000 = 1000000 (debt)
+      qoldiqQarzDorlik: 1000000,
       qoldiqAvans: 0,
     },
     {
@@ -88,7 +88,7 @@ export default function ChiqimModule() {
       jamiHisoblangan: 5000000,
       tolangan: 5500000,
       qoldiqQarzDorlik: 0,
-      qoldiqAvans: 500000, // 5500000 - 5000000 = 500000 (excess payment)
+      qoldiqAvans: 500000,
     },
   ])
 
@@ -117,13 +117,11 @@ export default function ChiqimModule() {
     const difference = jamiHisoblangan - tolangan
 
     if (difference > 0) {
-      // Positive difference = debt
       return {
         qoldiqQarzDorlik: difference,
         qoldiqAvans: 0,
       }
     } else {
-      // Negative difference = advance payment (without negative sign)
       return {
         qoldiqQarzDorlik: 0,
         qoldiqAvans: Math.abs(difference),
@@ -144,7 +142,6 @@ export default function ChiqimModule() {
 
       const matchesFilial = filters.filial === "Barcha filiallar" || item.filialNomi === filters.filial
 
-      // Date filtering
       const matchesDateRange = (() => {
         if (!filters.startDate && !filters.endDate) return true
 
@@ -209,9 +206,7 @@ export default function ChiqimModule() {
     if (newEntry.nomi && newEntry.chiqimNomi) {
       const id = Math.max(...chiqimData.map((d) => d.id)) + 1
 
-      // Auto-calculate values
       const jamiHisoblangan = calculateJamiHisoblangan(newEntry.avvalgiOylardan || 0, newEntry.birOylikHisoblangan || 0)
-
       const qoldiqValues = calculateQoldiqValues(jamiHisoblangan, newEntry.tolangan || 0)
 
       const entry: ChiqimData = {
@@ -234,9 +229,7 @@ export default function ChiqimModule() {
   }
 
   const updateEntry = (updatedEntry: ChiqimData) => {
-    // Recalculate values
     const jamiHisoblangan = calculateJamiHisoblangan(updatedEntry.avvalgiOylardan, updatedEntry.birOylikHisoblangan)
-
     const qoldiqValues = calculateQoldiqValues(jamiHisoblangan, updatedEntry.tolangan)
 
     const finalEntry = {
@@ -264,7 +257,6 @@ export default function ChiqimModule() {
     })
   }
 
-  // Calculate totals for Balans module
   const totals = filteredData.reduce(
     (acc, row) => ({
       avvalgiOylardan: acc.avvalgiOylardan + row.avvalgiOylardan,
@@ -534,7 +526,7 @@ export default function ChiqimModule() {
               </tr>
               {/* Totals Row */}
               <tr className="border-b-2 border-gray-300 bg-gray-100 font-medium">
-                <td className="px-4 py-3 text-sm" colSpan={4}>
+                <td className="px-4 py-3 text-sm" colSpan={5}>
                   Jami ko'rsatkichlar:
                 </td>
                 <td className="px-4 py-3 text-sm text-right text-gray-700">
@@ -599,7 +591,7 @@ export default function ChiqimModule() {
         </div>
       </div>
 
-      {/* Edit Modal with Auto-calculations */}
+      {/* Edit Modal */}
       {editingItem && (
         <Dialog open={!!editingItem} onOpenChange={() => setEditingItem(null)}>
           <DialogContent className="max-w-2xl">
@@ -748,12 +740,13 @@ export default function ChiqimModule() {
   )
 }
 
-// Export totals for Balans module
-export { ChiqimModule as default }
+// Export totals function for Balans module
 export const getChiqimTotals = () => {
-  // This would be called from Balans module to get totals
   return {
-    jamiOylikXarajat: 0, // This should be calculated from actual data
-    jamiYigirmaAyirmasi: 0, // This should be calculated from actual data
+    jamiOylikXarajat: 0,
+    jamiYigirmaAyirmasi: 0,
   }
 }
+
+// Default export
+export default ChiqimModule
