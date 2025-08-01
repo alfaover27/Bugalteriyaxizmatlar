@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -35,62 +35,7 @@ interface ChiqimData {
 const filialOptions = ["Toshkent filiali", "Samarqand filiali", "Buxoro filiali", "Andijon filiali", "Namangan filiali"]
 
 function ChiqimModule() {
-  const { chiqimData, setChiqimData } = useAccounting()
-
-  const [data, setData] = useState<ChiqimData[]>([
-    {
-      id: 1,
-      sana: "25/07/2024",
-      nomi: "Ali",
-      filialNomi: "Toshkent filiali",
-      chiqimNomi: "Ish haqi",
-      avvalgiOylardan: 200000,
-      birOylikHisoblangan: 8000000,
-      jamiHisoblangan: 8200000,
-      tolangan: 8500000,
-      qoldiqQarzDorlik: 0,
-      qoldiqAvans: 300000,
-    },
-    {
-      id: 2,
-      sana: "10/06/2024",
-      nomi: "Vali",
-      filialNomi: "Samarqand filiali",
-      chiqimNomi: "Ijara to'lovi",
-      avvalgiOylardan: 500000,
-      birOylikHisoblangan: 7500000,
-      jamiHisoblangan: 8000000,
-      tolangan: 7000000,
-      qoldiqQarzDorlik: 1000000,
-      qoldiqAvans: 0,
-    },
-    {
-      id: 3,
-      sana: "01/07/2024",
-      nomi: "Sami",
-      filialNomi: "Toshkent filiali",
-      chiqimNomi: "Kommunal xarajatlar",
-      avvalgiOylardan: 0,
-      birOylikHisoblangan: 6500000,
-      jamiHisoblangan: 6500000,
-      tolangan: 6500000,
-      qoldiqQarzDorlik: 0,
-      qoldiqAvans: 0,
-    },
-    {
-      id: 4,
-      sana: "15/05/2024",
-      nomi: "Soli",
-      filialNomi: "Samarqand filiali",
-      chiqimNomi: "Transport xarajatlari",
-      avvalgiOylardan: 0,
-      birOylikHisoblangan: 5000000,
-      jamiHisoblangan: 5000000,
-      tolangan: 5500000,
-      qoldiqQarzDorlik: 0,
-      qoldiqAvans: 500000,
-    },
-  ])
+  const { chiqimData, loading, addChiqim, updateChiqim, deleteChiqim } = useAccounting()
 
   const [filters, setFilters] = useState({
     searchTerm: "",
@@ -103,10 +48,6 @@ function ChiqimModule() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<ChiqimData | null>(null)
   const [newEntry, setNewEntry] = useState<Partial<ChiqimData>>({})
-
-  useEffect(() => {
-    setChiqimData(data)
-  }, [data, setChiqimData])
 
   // Auto-calculation functions
   const calculateJamiHisoblangan = (avvalgiOylardan: number, birOylikHisoblangan: number) => {
@@ -202,49 +143,67 @@ function ChiqimModule() {
     document.body.removeChild(link)
   }
 
-  const addNewEntry = () => {
+  const addNewEntry = async () => {
     if (newEntry.nomi && newEntry.chiqimNomi) {
-      const id = Math.max(...chiqimData.map((d) => d.id)) + 1
+      try {
+        const jamiHisoblangan = calculateJamiHisoblangan(
+          newEntry.avvalgiOylardan || 0,
+          newEntry.birOylikHisoblangan || 0,
+        )
+        const qoldiqValues = calculateQoldiqValues(jamiHisoblangan, newEntry.tolangan || 0)
 
-      const jamiHisoblangan = calculateJamiHisoblangan(newEntry.avvalgiOylardan || 0, newEntry.birOylikHisoblangan || 0)
-      const qoldiqValues = calculateQoldiqValues(jamiHisoblangan, newEntry.tolangan || 0)
+        const entry = {
+          sana: newEntry.sana || new Date().toLocaleDateString("en-GB"),
+          nomi: newEntry.nomi || "",
+          filialNomi: newEntry.filialNomi || "Toshkent filiali",
+          chiqimNomi: newEntry.chiqimNomi || "",
+          avvalgiOylardan: newEntry.avvalgiOylardan || 0,
+          birOylikHisoblangan: newEntry.birOylikHisoblangan || 0,
+          jamiHisoblangan,
+          tolangan: newEntry.tolangan || 0,
+          qoldiqQarzDorlik: qoldiqValues.qoldiqQarzDorlik,
+          qoldiqAvans: qoldiqValues.qoldiqAvans,
+        }
 
-      const entry: ChiqimData = {
-        id,
-        sana: newEntry.sana || new Date().toLocaleDateString("en-GB"),
-        nomi: newEntry.nomi || "",
-        filialNomi: newEntry.filialNomi || "",
-        chiqimNomi: newEntry.chiqimNomi || "",
-        avvalgiOylardan: newEntry.avvalgiOylardan || 0,
-        birOylikHisoblangan: newEntry.birOylikHisoblangan || 0,
+        await addChiqim(entry)
+        setNewEntry({})
+        setIsAddModalOpen(false)
+      } catch (error) {
+        console.error("Error adding entry:", error)
+        alert("Xatolik yuz berdi. Qaytadan urinib ko'ring.")
+      }
+    }
+  }
+
+  const updateEntry = async (updatedEntry: ChiqimData) => {
+    try {
+      const jamiHisoblangan = calculateJamiHisoblangan(updatedEntry.avvalgiOylardan, updatedEntry.birOylikHisoblangan)
+      const qoldiqValues = calculateQoldiqValues(jamiHisoblangan, updatedEntry.tolangan)
+
+      const finalEntry = {
+        ...updatedEntry,
         jamiHisoblangan,
-        tolangan: newEntry.tolangan || 0,
         qoldiqQarzDorlik: qoldiqValues.qoldiqQarzDorlik,
         qoldiqAvans: qoldiqValues.qoldiqAvans,
       }
-      setChiqimData([...chiqimData, entry])
-      setNewEntry({})
-      setIsAddModalOpen(false)
+
+      await updateChiqim(updatedEntry.id, finalEntry)
+      setEditingItem(null)
+    } catch (error) {
+      console.error("Error updating entry:", error)
+      alert("Xatolik yuz berdi. Qaytadan urinib ko'ring.")
     }
   }
 
-  const updateEntry = (updatedEntry: ChiqimData) => {
-    const jamiHisoblangan = calculateJamiHisoblangan(updatedEntry.avvalgiOylardan, updatedEntry.birOylikHisoblangan)
-    const qoldiqValues = calculateQoldiqValues(jamiHisoblangan, updatedEntry.tolangan)
-
-    const finalEntry = {
-      ...updatedEntry,
-      jamiHisoblangan,
-      qoldiqQarzDorlik: qoldiqValues.qoldiqQarzDorlik,
-      qoldiqAvans: qoldiqValues.qoldiqAvans,
+  const deleteEntry = async (id: number) => {
+    if (confirm("Haqiqatan ham bu yozuvni o'chirmoqchimisiz?")) {
+      try {
+        await deleteChiqim(id)
+      } catch (error) {
+        console.error("Error deleting entry:", error)
+        alert("Xatolik yuz berdi. Qaytadan urinib ko'ring.")
+      }
     }
-
-    setChiqimData(chiqimData.map((item) => (item.id === updatedEntry.id ? finalEntry : item)))
-    setEditingItem(null)
-  }
-
-  const deleteEntry = (id: number) => {
-    setChiqimData(chiqimData.filter((item) => item.id !== id))
   }
 
   const clearFilters = () => {
@@ -275,6 +234,14 @@ function ChiqimModule() {
       qoldiqAvans: 0,
     },
   )
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Ma'lumotlar yuklanmoqda...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

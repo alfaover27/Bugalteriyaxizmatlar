@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Download, Search, Plus, Edit, Trash2, Filter } from "lucide-react"
+import { Download, Search, Plus, Edit, Trash2 } from "lucide-react"
 import { useAccounting } from "@/contexts/accounting-context"
 
 interface KirimData {
@@ -36,62 +36,7 @@ interface KirimData {
 const filialOptions = ["Toshkent filiali", "Samarqand filiali", "Buxoro filiali", "Andijon filiali", "Namangan filiali"]
 
 export default function KirimModule() {
-  const { kirimData, setKirimData } = useAccounting()
-
-  // Use kirimData from context instead of local state
-  // Update setKirimData calls instead of setData
-  const [data, setData] = useState<KirimData[]>([
-    {
-      id: 1,
-      korxonaNomi: "Guliston Savdo",
-      inn: "200048056",
-      telRaqami: "+998 91 234-56-78",
-      ismi: "Karimova Nargiza",
-      xizmatTuri: "Buxgalteriya hisobi",
-      filialNomi: "Samarqand filiali",
-      oldingiOylardan: {
-        oylarSoni: 2,
-        summasi: 500000,
-      },
-      birOylikHisoblanganSumma: 1000000,
-      jamiQarzDorlik: 1500000, // Auto calculated: 500000 + 1000000
-      tolandi: {
-        jami: 800000,
-        naqd: 300000,
-        prechisleniya: 500000,
-        karta: 0,
-      },
-      qoldiq: 700000, // Auto calculated: 1500000 - 800000
-      lastUpdated: new Date().toISOString(),
-    },
-    {
-      id: 2,
-      korxonaNomi: "Buxgalteriya hisobi",
-      inn: "123456789",
-      telRaqami: "+998 90 123-45-67",
-      ismi: "Aliyev Vali",
-      xizmatTuri: "Buxgalteriya hisobi",
-      filialNomi: "Toshkent filiali",
-      oldingiOylardan: {
-        oylarSoni: 0,
-        summasi: 0,
-      },
-      birOylikHisoblanganSumma: 750000,
-      jamiQarzDorlik: 750000,
-      tolandi: {
-        jami: 750000,
-        naqd: 750000,
-        prechisleniya: 0,
-        karta: 0,
-      },
-      qoldiq: 0,
-      lastUpdated: new Date().toISOString(),
-    },
-  ])
-
-  useEffect(() => {
-    setKirimData(data)
-  }, [data, setKirimData])
+  const { kirimData, loading, addKirim, updateKirim, deleteKirim } = useAccounting()
 
   const [filters, setFilters] = useState({
     searchTerm: "",
@@ -128,32 +73,6 @@ export default function KirimModule() {
 
   const calculateQoldiq = (jamiQarzDorlik: number, tolandiJami: number) => {
     return jamiQarzDorlik - tolandiJami
-  }
-
-  // Monthly rollover function (call this on the first day of each month)
-  const performMonthlyRollover = () => {
-    const updatedData = kirimData.map((item) => {
-      if (item.qoldiq > 0) {
-        return {
-          ...item,
-          oldingiOylardan: {
-            oylarSoni: item.oldingiOylardan.oylarSoni + 1,
-            summasi: item.oldingiOylardan.summasi + item.qoldiq,
-          },
-          jamiQarzDorlik: calculateJamiQarzDorlik(
-            item.oldingiOylardan.summasi + item.qoldiq,
-            item.birOylikHisoblanganSumma,
-          ),
-          qoldiq: calculateQoldiq(
-            calculateJamiQarzDorlik(item.oldingiOylardan.summasi + item.qoldiq, item.birOylikHisoblanganSumma),
-            item.tolandi.jami,
-          ),
-          lastUpdated: new Date().toISOString(),
-        }
-      }
-      return item
-    })
-    setKirimData(updatedData)
   }
 
   const filteredData = useMemo(() => {
@@ -242,88 +161,103 @@ export default function KirimModule() {
     document.body.removeChild(link)
   }
 
-  const addNewEntry = () => {
+  const addNewEntry = async () => {
     if (newEntry.korxonaNomi && newEntry.inn) {
-      const id = Math.max(...kirimData.map((d) => d.id)) + 1
+      try {
+        // Auto-calculate values
+        const jamiQarzDorlik = calculateJamiQarzDorlik(
+          newEntry.oldingiOylardan?.summasi || 0,
+          newEntry.birOylikHisoblanganSumma || 0,
+        )
 
-      // Auto-calculate values
+        const tolandiJami = calculateTolandiJami(
+          newEntry.tolandi?.naqd || 0,
+          newEntry.tolandi?.prechisleniya || 0,
+          newEntry.tolandi?.karta || 0,
+        )
+
+        const qoldiq = calculateQoldiq(jamiQarzDorlik, tolandiJami)
+
+        const entry = {
+          korxonaNomi: newEntry.korxonaNomi || "",
+          inn: newEntry.inn || "",
+          telRaqami: newEntry.telRaqami || "",
+          ismi: newEntry.ismi || "",
+          xizmatTuri: newEntry.xizmatTuri || "",
+          filialNomi: newEntry.filialNomi || "Toshkent filiali",
+          oldingiOylardan: {
+            oylarSoni: newEntry.oldingiOylardan?.oylarSoni || 0,
+            summasi: newEntry.oldingiOylardan?.summasi || 0,
+          },
+          birOylikHisoblanganSumma: newEntry.birOylikHisoblanganSumma || 0,
+          jamiQarzDorlik,
+          tolandi: {
+            jami: tolandiJami,
+            naqd: newEntry.tolandi?.naqd || 0,
+            prechisleniya: newEntry.tolandi?.prechisleniya || 0,
+            karta: newEntry.tolandi?.karta || 0,
+          },
+          qoldiq,
+          lastUpdated: new Date().toISOString(),
+        }
+
+        await addKirim(entry)
+        setNewEntry({
+          oldingiOylardan: { oylarSoni: 0, summasi: 0 },
+          tolandi: { jami: 0, naqd: 0, prechisleniya: 0, karta: 0 },
+        })
+        setIsAddModalOpen(false)
+      } catch (error) {
+        console.error("Error adding entry:", error)
+        alert("Xatolik yuz berdi. Qaytadan urinib ko'ring.")
+      }
+    }
+  }
+
+  const updateEntry = async (updatedEntry: KirimData) => {
+    try {
+      // Recalculate values
       const jamiQarzDorlik = calculateJamiQarzDorlik(
-        newEntry.oldingiOylardan?.summasi || 0,
-        newEntry.birOylikHisoblanganSumma || 0,
+        updatedEntry.oldingiOylardan.summasi,
+        updatedEntry.birOylikHisoblanganSumma,
       )
 
       const tolandiJami = calculateTolandiJami(
-        newEntry.tolandi?.naqd || 0,
-        newEntry.tolandi?.prechisleniya || 0,
-        newEntry.tolandi?.karta || 0,
+        updatedEntry.tolandi.naqd,
+        updatedEntry.tolandi.prechisleniya,
+        updatedEntry.tolandi.karta,
       )
 
       const qoldiq = calculateQoldiq(jamiQarzDorlik, tolandiJami)
 
-      const entry: KirimData = {
-        id,
-        korxonaNomi: newEntry.korxonaNomi || "",
-        inn: newEntry.inn || "",
-        telRaqami: newEntry.telRaqami || "",
-        ismi: newEntry.ismi || "",
-        xizmatTuri: newEntry.xizmatTuri || "",
-        filialNomi: newEntry.filialNomi || "",
-        oldingiOylardan: {
-          oylarSoni: newEntry.oldingiOylardan?.oylarSoni || 0,
-          summasi: newEntry.oldingiOylardan?.summasi || 0,
-        },
-        birOylikHisoblanganSumma: newEntry.birOylikHisoblanganSumma || 0,
+      const finalEntry = {
+        ...updatedEntry,
         jamiQarzDorlik,
         tolandi: {
+          ...updatedEntry.tolandi,
           jami: tolandiJami,
-          naqd: newEntry.tolandi?.naqd || 0,
-          prechisleniya: newEntry.tolandi?.prechisleniya || 0,
-          karta: newEntry.tolandi?.karta || 0,
         },
         qoldiq,
         lastUpdated: new Date().toISOString(),
       }
-      setKirimData([...kirimData, entry])
-      setNewEntry({
-        oldingiOylardan: { oylarSoni: 0, summasi: 0 },
-        tolandi: { jami: 0, naqd: 0, prechisleniya: 0, karta: 0 },
-      })
-      setIsAddModalOpen(false)
+
+      await updateKirim(updatedEntry.id, finalEntry)
+      setEditingItem(null)
+    } catch (error) {
+      console.error("Error updating entry:", error)
+      alert("Xatolik yuz berdi. Qaytadan urinib ko'ring.")
     }
   }
 
-  const updateEntry = (updatedEntry: KirimData) => {
-    // Recalculate values
-    const jamiQarzDorlik = calculateJamiQarzDorlik(
-      updatedEntry.oldingiOylardan.summasi,
-      updatedEntry.birOylikHisoblanganSumma,
-    )
-
-    const tolandiJami = calculateTolandiJami(
-      updatedEntry.tolandi.naqd,
-      updatedEntry.tolandi.prechisleniya,
-      updatedEntry.tolandi.karta,
-    )
-
-    const qoldiq = calculateQoldiq(jamiQarzDorlik, tolandiJami)
-
-    const finalEntry = {
-      ...updatedEntry,
-      jamiQarzDorlik,
-      tolandi: {
-        ...updatedEntry.tolandi,
-        jami: tolandiJami,
-      },
-      qoldiq,
-      lastUpdated: new Date().toISOString(),
+  const deleteEntry = async (id: number) => {
+    if (confirm("Haqiqatan ham bu yozuvni o'chirmoqchimisiz?")) {
+      try {
+        await deleteKirim(id)
+      } catch (error) {
+        console.error("Error deleting entry:", error)
+        alert("Xatolik yuz berdi. Qaytadan urinib ko'ring.")
+      }
     }
-
-    setKirimData(kirimData.map((item) => (item.id === updatedEntry.id ? finalEntry : item)))
-    setEditingItem(null)
-  }
-
-  const deleteEntry = (id: number) => {
-    setKirimData(kirimData.filter((item) => item.id !== id))
   }
 
   const clearFilters = () => {
@@ -361,6 +295,14 @@ export default function KirimModule() {
     },
   )
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Ma'lumotlar yuklanmoqda...</div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header Section */}
@@ -373,14 +315,6 @@ export default function KirimModule() {
           <Button onClick={downloadCSV} variant="outline" className="flex items-center gap-2 bg-transparent">
             <Download className="h-4 w-4" />
             CSV Eksport
-          </Button>
-          <Button
-            onClick={performMonthlyRollover}
-            variant="outline"
-            className="flex items-center gap-2 bg-orange-50 text-orange-600 border-orange-200"
-          >
-            <Filter className="h-4 w-4" />
-            Oylik O'tkazish
           </Button>
           <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
             <DialogTrigger asChild>
